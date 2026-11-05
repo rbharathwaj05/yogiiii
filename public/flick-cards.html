@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yogii - Flick Cards Slider</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+
+  <style>
+    /* ==========================================================================
+       CUSTOMISE :root variables (Colours, sizing, timing)
+       ========================================================================== */
+    :root {
+      /* Stage & Background colours */
+      --stage-bg: #050505;
+      --card-bg: #111113;
+      --text-white: #f5f5f5;
+      --text-muted: rgba(245, 245, 245, 0.6);
+      
+      /* Card dimensions & proportions */
+      --card-aspect: 3 / 4.1;
+      --card-width: clamp(150px, min(30vw, 50vh), 380px);
+      --card-radius: 14px;
+      --stage-perspective: 1400px;
+      
+      /* Font stacks */
+      --font-display: 'Instrument Serif', Georgia, serif;
+      --font-ui: 'Space Grotesk', -apple-system, sans-serif;
+      --font-btn: 'Space Mono', monospace;
+      
+      /* Ambient glow */
+      --glow-blur: 90px;
+      --glow-opacity: 0.16;
+      
+      /* UI accents */
+      --btn-bg: rgba(18, 18, 22, 0.88);
+      --btn-border: rgba(255, 255, 255, 0.18);
+      --btn-hover: #ffffff;
+      --btn-hover-text: #050505;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: var(--stage-bg);
+      color: var(--text-white);
+      font-family: var(--font-ui);
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Ambient crossfading backdrop */
+    .ambient-glow {
+      position: absolute;
+      inset: -15%;
+      width: 130%;
+      height: 130%;
+      z-index: 1;
+      pointer-events: none;
+      filter: blur(var(--glow-blur));
+      opacity: var(--glow-opacity);
+      transform: scale(1.1);
+      transition: opacity 0.8s ease;
+    }
+    .ambient-glow img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .ambient-glow img.active {
+      opacity: 1;
+    }
+
+    /* Stage Header: Beautiful 'Yogii' */
+    .stage-header {
+      position: absolute;
+      top: 5vh;
+      left: 0;
+      right: 0;
+      z-index: 30;
+      text-align: center;
+      pointer-events: none;
+    }
+    .stage-header h1 {
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-style: italic;
+      font-size: clamp(3rem, 7vw, 5.8rem);
+      letter-spacing: -0.02em;
+      line-height: 1;
+      background: linear-gradient(180deg, #ffffff 30%, rgba(255, 255, 255, 0.55) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 4px 30px rgba(255, 255, 255, 0.1);
+    }
+    .stage-header p {
+      font-family: var(--font-btn);
+      font-size: clamp(10px, 1.2vw, 12px);
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* 3D Stage */
+    .stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      perspective: var(--stage-perspective);
+      z-index: 10;
+      overflow: hidden;
+    }
+
+    /* Deck container */
+    .deck {
+      position: relative;
+      width: var(--card-width);
+      aspect-ratio: var(--card-aspect);
+      transform-style: preserve-3d;
+    }
+
+    /* Card styling */
+    .card {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: var(--card-radius);
+      overflow: hidden;
+      background: var(--card-bg);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      cursor: grab;
+      transform-origin: center center;
+      will-change: transform, opacity;
+      touch-action: none;
+    }
+    .card:active {
+      cursor: grabbing;
+    }
+
+    .card-photo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      pointer-events: none;
+    }
+
+    /* Card shade overlay */
+    .card-shade {
+      position: absolute;
+      inset: 0;
+      background: #000;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+    }
+
+    /* Front Card Content */
+    .card-content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: clamp(16px, 5%, 26px);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .card-title-wrap {
+      margin-top: auto;
+      margin-bottom: auto;
+      text-align: center;
+      padding: 0 10px;
+    }
+    .card-title {
+      font-size: calc(var(--card-width) * 0.13);
+      font-weight: 500;
+      color: #ffffff;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      text-shadow: 0 4px 18px rgba(0, 0, 0, 0.85);
+      font-family: var(--font-ui);
+    }
+
+    .card-btn {
+      font-family: var(--font-btn);
+      font-size: clamp(10px, 2.8cqi, 12px);
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      color: #ffffff;
+      background: var(--btn-bg);
+      border: 1px solid var(--btn-border);
+      padding: 10px 20px;
+      border-radius: 9999px;
+      cursor: pointer;
+      pointer-events: auto;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+      margin-bottom: 8px;
+    }
+    .card-btn:hover {
+      background: var(--btn-hover);
+      color: var(--btn-hover-text);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(255, 255, 255, 0.25);
+    }
+
+    /* Edge Navigation Arrows */
+    .nav-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: clamp(44px, 5vw, 56px);
+      height: clamp(44px, 5vw, 56px);
+      border-radius: 50%;
+      background: rgba(18, 18, 22, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 40;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .nav-arrow:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.35);
+      transform: translateY(-50%) scale(1.08);
+    }
+    .nav-arrow svg {
+      width: 20px;
+      height: 20px;
+      stroke-width: 2.2;
+    }
+    .nav-prev { left: clamp(16px, 3.5vw, 48px); }
+    .nav-next { right: clamp(16px, 3.5vw, 48px); }
+
+    /* Bottom Dots Indicator */
+    .dots-wrap {
+      position: absolute;
+      bottom: 5vh;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      z-index: 30;
+      pointer-events: auto;
+    }
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.25);
+      cursor: pointer;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .dot.active {
+      width: 24px;
+      background: #ffffff;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .card, .ambient-glow img, .card-btn, .nav-arrow {
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Glow crossfade copy -->
+  <div class="ambient-glow" id="ambientGlow"></div>
+
+  <!-- Header: Yogii -->
+  <header class="stage-header">
+    <h1>Yogii</h1>
+    <p>Curated Memories · Flick to Explore</p>
+  </header>
+
+  <!-- Navigation Arrows -->
+  <button class="nav-arrow nav-prev" id="prevBtn" aria-label="Previous card">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+  <button class="nav-arrow nav-next" id="nextBtn" aria-label="Next card">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path d="M9 18l6-6-6-6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+
+  <!-- 3D Stage -->
+  <main class="stage" id="stage">
+    <div class="deck" id="deck"></div>
+  </main>
+
+  <!-- Dots -->
+  <div class="dots-wrap" id="dotsWrap"></div>
+
+  <script>
+    // 6 Cards Data using the WhatsApp Gallery photos
+    const CARDS = [
+      { id: 1, title: "Pure Radiance", image: "/images/gallery/artwork-1.jpeg" },
+      { id: 2, title: "Velvet Whispers", image: "/images/gallery/artwork-2.jpeg" },
+      { id: 3, title: "Golden Horizon", image: "/images/gallery/artwork-3.jpeg" },
+      { id: 4, title: "Timeless Grace", image: "/images/gallery/artwork-4.jpeg" },
+      { id: 5, title: "Seraphic Dream", image: "/images/gallery/artwork-5.jpeg" },
+      { id: 6, title: "Everlasting Spark", image: "/images/gallery/artwork-6.jpeg" }
+    ];
+
+    const N = CARDS.length;
+    let activeIdx = 0;
+    let isAnimating = false;
+    let autoplayTimer = null;
+    const AUTOPLAY_DELAY = 3200;
+
+    const deckEl = document.getElementById("deck");
+    const ambientEl = document.getElementById("ambientGlow");
+    const dotsWrap = document.getElementById("dotsWrap");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const stageEl = document.getElementById("stage");
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // Build Ambient Glow Images
+    CARDS.forEach((card, i) => {
+      const img = document.createElement("img");
+      img.src = card.image;
+      img.alt = "";
+      if (i === 0) img.classList.add("active");
+      ambientEl.appendChild(img);
+    });
+
+    // Build Dots
+    CARDS.forEach((_, i) => {
+      const dot = document.createElement("div");
+      dot.className = "dot" + (i === 0 ? " active" : "");
+      dot.addEventListener("click", () => {
+        if (i !== activeIdx && !isAnimating) {
+          const dir = (i - activeIdx + N) % N <= N / 2 ? 1 : -1;
+          gotoCard(i, dir);
+        }
+      });
+      dotsWrap.appendChild(dot);
+    });
+
+    // Build Cards DOM (No text over face, click front card to zoom)
+    const cardNodes = CARDS.map((card, i) => {
+      const cardDiv = document.createElement("div");
+      cardDiv.className = "card";
+      cardDiv.dataset.index = i;
+
+      cardDiv.innerHTML = `
+        <img class="card-photo" src="${card.image}" alt="${card.title}">
+        <div class="card-shade"></div>
+      `;
+
+      cardDiv.addEventListener("click", () => {
+        if (i === activeIdx && !isDragging) {
+          openZoomModal(card.image);
+        }
+      });
+
+      deckEl.appendChild(cardDiv);
+      return cardDiv;
+    });
+
+    function getCardWidth() {
+      return deckEl.offsetWidth;
+    }
+
+    // Signed circular distance d between index and front
+    function getDistance(index, frontIndex) {
+      let diff = index - frontIndex;
+      if (diff > N / 2) diff -= N;
+      if (diff < -N / 2) diff += N;
+      return diff;
+    }
+
+    // Deck pose formula:
+    // x = sign(d) · |d|^0.7 · cardWidth · 0.52
+    // z = −|d| · 150, y = |d| · cardWidth · 0.015
+    // rotateY = −sign(d) · min(|d|,3) · 20°, rotateZ = sign(d) · |d| · 2.2°
+    // scale = 1 − |d| · 0.035, zIndex = 20 − |d|·2, hidden when |d| > 3
+    // shade opacity = min(0.18 + |d|·0.2, 0.8) (0 on front)
+    function getCardPose(d, cardWidth) {
+      const absD = Math.abs(d);
+      const signD = Math.sign(d);
+
+      if (absD > 3) {
+        return { visible: false };
+      }
+
+      const x = signD * Math.pow(absD, 0.7) * cardWidth * 0.52;
+      const y = absD * cardWidth * 0.015;
+      const z = -absD * 150;
+      const rotateY = -signD * Math.min(absD, 3) * 20;
+      const rotateZ = signD * absD * 2.2;
+      const scale = 1 - absD * 0.035;
+      const zIndex = Math.round(20 - absD * 2);
+      const shadeOpacity = d === 0 ? 0 : Math.min(0.18 + absD * 0.2, 0.8);
+
+      return {
+        visible: true,
+        x, y, z,
+        rotateY, rotateZ,
+        scale, zIndex,
+        shadeOpacity
+      };
+    }
+
+    function updateAmbientGlow(frontIdx) {
+      const imgs = ambientEl.querySelectorAll("img");
+      imgs.forEach((img, i) => {
+        if (i === frontIdx) img.classList.add("active");
+        else img.classList.remove("active");
+      });
+
+      const dots = dotsWrap.querySelectorAll(".dot");
+      dots.forEach((dot, i) => {
+        if (i === frontIdx) dot.classList.add("active");
+        else dot.classList.remove("active");
+      });
+    }
+
+    // Apply pose to card
+    function renderDeck(frontIdx, animate = false) {
+      const cardW = getCardWidth();
+
+      cardNodes.forEach((card, i) => {
+        const d = getDistance(i, frontIdx);
+        const pose = getCardPose(d, cardW);
+        const shade = card.querySelector(".card-shade");
+
+        if (!pose.visible) {
+          gsap.set(card, { autoAlpha: 0 });
+          return;
+        }
+
+        if (animate && !prefersReducedMotion) {
+          gsap.to(card, {
+            x: pose.x,
+            y: pose.y,
+            z: pose.z,
+            rotateY: pose.rotateY,
+            rotateZ: pose.rotateZ,
+            scale: pose.scale,
+            zIndex: pose.zIndex,
+            autoAlpha: 1,
+            duration: 0.95,
+            delay: Math.abs(d) * 0.03,
+            ease: "expo.out"
+          });
+          gsap.to(shade, { opacity: pose.shadeOpacity, duration: 0.6 });
+        } else {
+          gsap.set(card, {
+            x: pose.x,
+            y: pose.y,
+            z: pose.z,
+            rotateY: pose.rotateY,
+            rotateZ: pose.rotateZ,
+            scale: pose.scale,
+            zIndex: pose.zIndex,
+            autoAlpha: 1
+          });
+          gsap.set(shade, { opacity: pose.shadeOpacity });
+        }
+      });
+
+      updateAmbientGlow(frontIdx);
+    }
+
+    // Flick transition (next: dir = 1, prev: dir = -1)
+    function flick(dir) {
+      if (isAnimating) return;
+      isAnimating = true;
+
+      const cardW = getCardWidth();
+      const frontCard = cardNodes[activeIdx];
+      const nextIdx = (activeIdx + dir + N) % N;
+
+      if (prefersReducedMotion) {
+        activeIdx = nextIdx;
+        renderDeck(activeIdx, false);
+        isAnimating = false;
+        return;
+      }
+
+      // Step 1: Front card arcs out
+      // Next: x -105%, y -6%, rotateZ -14°, rotateY 30°, scale 0.96 over 0.4s (power3.out)
+      // Prev mirrors: x +105%, y -6%, rotateZ +14°, rotateY -30°, scale 0.96
+      const arcX = -dir * cardW * 1.05;
+      const arcZRot = -dir * 14;
+      const arcYRot = dir * 30;
+
+      gsap.to(frontCard, {
+        x: arcX,
+        y: -cardW * 0.06,
+        rotateZ: arcZRot,
+        rotateY: arcYRot,
+        scale: 0.96,
+        duration: 0.4,
+        ease: "power3.out",
+        onComplete: () => {
+          // Step 2: Front card eases into its back slot
+          activeIdx = nextIdx;
+          const targetDist = getDistance(Number(frontCard.dataset.index), activeIdx);
+          const backPose = getCardPose(targetDist, cardW);
+
+          gsap.set(frontCard, { zIndex: backPose.zIndex });
+          gsap.to(frontCard, {
+            x: backPose.x,
+            y: backPose.y,
+            z: backPose.z,
+            rotateY: backPose.rotateY,
+            rotateZ: backPose.rotateZ,
+            scale: backPose.scale,
+            duration: 0.66,
+            ease: "expo.out"
+          });
+          const shade = frontCard.querySelector(".card-shade");
+          gsap.to(shade, { opacity: backPose.shadeOpacity, duration: 0.5 });
+        }
+      });
+
+      // Step 3: All other cards tween to their new pose concurrently
+      cardNodes.forEach((card, i) => {
+        if (i === activeIdx) return;
+        const d = getDistance(i, nextIdx);
+        const pose = getCardPose(d, cardW);
+        const shade = card.querySelector(".card-shade");
+
+        if (!pose.visible) {
+          gsap.to(card, { autoAlpha: 0, duration: 0.4 });
+          return;
+        }
+
+        gsap.to(card, {
+          x: pose.x,
+          y: pose.y,
+          z: pose.z,
+          rotateY: pose.rotateY,
+          rotateZ: pose.rotateZ,
+          scale: pose.scale,
+          zIndex: pose.zIndex,
+          autoAlpha: 1,
+          duration: 0.95,
+          delay: Math.abs(d) * 0.03,
+          ease: "expo.out"
+        });
+
+        gsap.to(shade, { opacity: pose.shadeOpacity, duration: 0.6 });
+      });
+
+      updateAmbientGlow(nextIdx);
+
+      setTimeout(() => {
+        isAnimating = false;
+      }, 720);
+    }
+
+    function gotoCard(targetIdx, dir = 1) {
+      if (targetIdx === activeIdx) return;
+      flick(dir);
+    }
+
+    // Pointer-drag on front card
+    let isDragging = false;
+    let startX = 0;
+    let currentX = 0;
+    let lastTime = 0;
+    let lastPosX = 0;
+    let velocity = 0;
+
+    function initDrag() {
+      deckEl.addEventListener("pointerdown", (e) => {
+        if (isAnimating) return;
+        const frontCard = cardNodes[activeIdx];
+        if (!frontCard.contains(e.target) && e.target !== frontCard) return;
+
+        isDragging = true;
+        startX = e.clientX;
+        currentX = startX;
+        lastPosX = startX;
+        lastTime = performance.now();
+        velocity = 0;
+
+        deckEl.setPointerCapture(e.pointerId);
+        stopAutoplay();
+      });
+
+      deckEl.addEventListener("pointermove", (e) => {
+        if (!isDragging) return;
+        currentX = e.clientX;
+        const now = performance.now();
+        const dt = now - lastTime;
+        if (dt > 8) {
+          velocity = (currentX - lastPosX) / dt;
+          lastPosX = currentX;
+          lastTime = now;
+        }
+
+        const deltaX = currentX - startX;
+        const cardW = getCardWidth();
+        const rotZ = (deltaX / cardW) * 12;
+        const frontCard = cardNodes[activeIdx];
+
+        gsap.set(frontCard, {
+          x: deltaX,
+          rotateZ: rotZ,
+          rotateY: -(deltaX / cardW) * 15
+        });
+      });
+
+      const onPointerEnd = (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        try { deckEl.releasePointerCapture(e.pointerId); } catch (err) {}
+
+        const deltaX = currentX - startX;
+        const cardW = getCardWidth();
+        const movedPercent = Math.abs(deltaX) / cardW;
+        const fastFlick = Math.abs(velocity) > 0.5;
+
+        if (movedPercent > 0.22 || fastFlick) {
+          const dir = deltaX < 0 || velocity < -0.5 ? 1 : -1;
+          flick(dir);
+        } else {
+          // Spring back
+          const frontCard = cardNodes[activeIdx];
+          gsap.to(frontCard, {
+            x: 0,
+            y: 0,
+            rotateZ: 0,
+            rotateY: 0,
+            duration: 0.75,
+            ease: "elastic.out(1, 0.6)"
+          });
+        }
+
+        startAutoplay();
+      };
+
+      deckEl.addEventListener("pointerup", onPointerEnd);
+      deckEl.addEventListener("pointercancel", onPointerEnd);
+    }
+
+    // Keyboard support
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft") flick(-1);
+      else if (e.key === "ArrowRight") flick(1);
+    });
+
+    // Arrow buttons
+    prevBtn.addEventListener("click", () => flick(-1));
+    nextBtn.addEventListener("click", () => flick(1));
+
+    // Autoplay logic
+    function startAutoplay() {
+      if (prefersReducedMotion) return;
+      stopAutoplay();
+      autoplayTimer = setInterval(() => {
+        flick(1);
+      }, AUTOPLAY_DELAY);
+    }
+
+    function stopAutoplay() {
+      if (autoplayTimer) {
+        clearInterval(autoplayTimer);
+        autoplayTimer = null;
+      }
+    }
+
+    stageEl.addEventListener("pointerenter", stopAutoplay);
+    stageEl.addEventListener("pointerleave", startAutoplay);
+
+    // Intro Animation: Cards fly up from below with ±24° tilt, back cards first (1.4s expo.out, 0.07s stagger)
+    function runIntro() {
+      const cardW = getCardWidth();
+
+      if (prefersReducedMotion) {
+        renderDeck(0, false);
+        return;
+      }
+
+      // Order cards: back cards first (largest distance first)
+      const sortedCards = [...cardNodes].sort((a, b) => {
+        const distA = Math.abs(getDistance(Number(a.dataset.index), 0));
+        const distB = Math.abs(getDistance(Number(b.dataset.index), 0));
+        return distB - distA;
+      });
+
+      sortedCards.forEach((card, idx) => {
+        const i = Number(card.dataset.index);
+        const d = getDistance(i, 0);
+        const pose = getCardPose(d, cardW);
+        const randomTilt = (Math.random() - 0.5) * 48; // ±24° tilt
+
+        gsap.set(card, {
+          y: window.innerHeight * 0.8,
+          x: pose.x * 1.4,
+          z: -600,
+          rotateZ: randomTilt,
+          rotateY: pose.rotateY * 1.5,
+          scale: 0.7,
+          autoAlpha: 0,
+          zIndex: pose.zIndex
+        });
+
+        gsap.to(card, {
+          x: pose.x,
+          y: pose.y,
+          z: pose.z,
+          rotateZ: pose.rotateZ,
+          rotateY: pose.rotateY,
+          scale: pose.scale,
+          autoAlpha: pose.visible ? 1 : 0,
+          duration: 1.4,
+          delay: 0.15 + idx * 0.07,
+          ease: "expo.out"
+        });
+
+        const shade = card.querySelector(".card-shade");
+        gsap.to(shade, { opacity: pose.shadeOpacity, duration: 1, delay: 0.15 + idx * 0.07 });
+      });
+
+      updateAmbientGlow(0);
+      setTimeout(startAutoplay, 1500);
+    }
+
+    // Zoom Lightbox Modal
+    function openZoomModal(src) {
+      stopAutoplay();
+      const modal = document.createElement("div");
+      modal.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.96);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:center;padding:20px;cursor:zoom-out;";
+      
+      const img = document.createElement("img");
+      img.src = src;
+      img.style.cssText = "max-height:90vh;max-width:92vw;object-contain;border-radius:10px;box-shadow:0 30px 80px rgba(0,0,0,0.9);transition:transform 0.3s ease;cursor:zoom-in;";
+      
+      let zoomed = false;
+      img.addEventListener("click", (e) => {
+        e.stopPropagation();
+        zoomed = !zoomed;
+        img.style.transform = zoomed ? "scale(1.8)" : "scale(1)";
+        img.style.cursor = zoomed ? "zoom-out" : "zoom-in";
+      });
+
+      const closeBtn = document.createElement("button");
+      closeBtn.innerText = "Close [ESC]";
+      closeBtn.style.cssText = "position:absolute;top:20px;right:20px;color:#fff;background:rgba(255,255,255,0.15);border:none;padding:8px 18px;border-radius:99px;font-family:var(--font-btn);font-size:12px;cursor:pointer;";
+      
+      function close() {
+        modal.remove();
+        window.removeEventListener("keydown", onKey);
+        startAutoplay();
+      }
+
+      function onKey(e) {
+        if (e.key === "Escape") close();
+      }
+
+      modal.addEventListener("click", close);
+      closeBtn.addEventListener("click", close);
+      window.addEventListener("keydown", onKey);
+
+      modal.appendChild(img);
+      modal.appendChild(closeBtn);
+      document.body.appendChild(modal);
+    }
+
+    // Responsive resize handler
+    window.addEventListener("resize", () => {
+      renderDeck(activeIdx, false);
+    });
+
+    // Init
+    initDrag();
+    runIntro();
+  </script>
+</body>
+</html>

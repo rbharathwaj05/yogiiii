@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #fdfbf7;
+    --foreground: #1c1917;
+    --card: #f8f6f0;
+    --card-foreground: #1c1917;
+    --popover: #f8f6f0;
+    --popover-foreground: #1c1917;
+    --primary: #1c1917;
+    --primary-foreground: #fafaf9;
+    --secondary: #f3efe6;
+    --secondary-foreground: #1c1917;
+    --muted: #ebe5d8;
+    --muted-foreground: #78716c;
+    --accent: #ebe5d8;
+    --accent-foreground: #1c1917;
+    --destructive: #ef4444;
+    --destructive-foreground: #fafaf9;
+    --border: #e2dcd0;
+    --input: #e2dcd0;
+    --ring: #78716c;
+    --radius: 0.5rem;
+    --chart-1: #e76e50;
+    --chart-2: #2a9d90;
+    --chart-3: #274754;
+    --chart-4: #e8c468;
+    --chart-5: #f4a462;
+
+    /* Direct color variables used by the gallery calculations */
+    --color-foreground: #1c1917;
+    --color-card: #f8f6f0;
+    --color-muted: #ebe5d8;
+  }
+
+  .dark {
+    --background: #121214;
+    --foreground: #f4f4f5;
+    --card: #18181b;
+    --card-foreground: #f4f4f5;
+    --popover: #18181b;
+    --popover-foreground: #f4f4f5;
+    --primary: #f4f4f5;
+    --primary-foreground: #18181b;
+    --secondary: #27272a;
+    --secondary-foreground: #f4f4f5;
+    --muted: #27272a;
+    --muted-foreground: #a1a1aa;
+    --accent: #27272a;
+    --accent-foreground: #f4f4f5;
+    --destructive: #7f1d1d;
+    --destructive-foreground: #f4f4f5;
+    --border: #27272a;
+    --input: #27272a;
+    --ring: #d4d4d8;
+    --chart-1: #2662d9;
+    --chart-2: #2eb88a;
+    --chart-3: #e88c30;
+    --chart-4: #af57db;
+    --chart-5: #e23670;
+
+    /* Dark direct color variables */
+    --color-foreground: #f4f4f5;
+    --color-card: #18181b;
+    --color-muted: #27272a;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow-x: hidden;
+}
+
